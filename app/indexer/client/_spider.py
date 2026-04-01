@@ -280,9 +280,47 @@ class TorrentSpider(feapder.AirSpider):
             html_text = ""
             if chrome.get_status():
                 html_text = chrome.get_page_html(url=request.url, cookies=self.cookie)
+            
+            # 检测 CF 人机验证拦截，自动修复后重试
+            if html_text and self._is_cf_blocked(html_text):
+                log.warn(f"【Spider】检测到 CF 人机验证拦截，正在自动处理...")
+                cf_url = self._get_cf_solve_url()
+                if chrome.solve_cf_for_site(site_url=cf_url, cookies=self.cookie):
+                    # CF 过盾成功，重新请求搜索页
+                    log.info(f"【Spider】CF 验证通过，重新搜索...")
+                    sleep(3)
+                    html_text = chrome.get_page_html(url=request.url, cookies=self.cookie)
+                    if html_text and self._is_cf_blocked(html_text):
+                        log.error(f"【Spider】重试后仍被 CF 拦截")
+                else:
+                    log.error(f"【Spider】CF 自动处理失败")
+            
             if html_text:
+                log.debug(f"【Spider】HTML长度: {len(html_text)}, 前500字符: {html_text[:500]}")
                 response = feapder.Response.from_text(text=html_text, url="", cookies={}, headers={})
         return request, response
+
+    def _is_cf_blocked(self, html_text: str) -> bool:
+        """检测页面是否被 CF 人机验证拦截"""
+        cf_block_keywords = [
+            "搜索人机验证未通过",
+            "人机验证未通过",
+            "请返回种子列表页重新进行验证",
+        ]
+        for keyword in cf_block_keywords:
+            if keyword in html_text:
+                return True
+        return False
+
+    def _get_cf_solve_url(self) -> str:
+        """
+        获取需要过 CF 盾的页面 URL。
+        PT 站的 CF 验证通常绑定在种子列表页，
+        在该页面过盾后搜索就能恢复正常。
+        """
+        from urllib.parse import urlparse
+        parsed = urlparse(self.domain.rstrip('/'))
+        return f"{parsed.scheme}://{parsed.netloc}/torrents.php?hometeam=1&team20=1"
 
     def Gettitle_default(self, torrent):
         # title default
