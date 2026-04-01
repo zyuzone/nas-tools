@@ -16,6 +16,12 @@ def generate_tab_id() -> str:
 
 class DrissionPageHelper(metaclass=SingletonMeta):
     
+    # CF 修复的全局锁和状态（类级别，所有线程共享）
+    _cf_solve_lock = threading.Lock()
+    _cf_solving = False
+    _cf_last_solve_time = 0
+    _cf_solve_cooldown = 30  # 上次修复成功后 30 秒内不重复修复
+
     def __init__(self):
         self.url = ""
         url = Config().get_config("laboratory").get('chrome_server_host')
@@ -337,3 +343,104 @@ class DrissionPageHelper(metaclass=SingletonMeta):
             self._request_with_retry(method="DELETE", url=close_url)
         except Exception as e:
             log.error(f"关闭标签页异常: {str(e)}")
+
+    def solve_cf_for_site(self, site_url: str, cookies: Optional[str] = None, timeout: int = 120) -> bool:
+        """
+        为指定站点解决 CF 验证（线程安全）。
+        多个搜索线程可能同时检测到 CF 拦截，但只允许一个线程执行修复，
+        其他线程等待修复完成后直接返回结果。
+        
+        流程优化说明：
+        跳过 get_tab_html 步骤（该步骤会触发 chrome 端的嵌入式 Turnstile 处理，
+        但因为 shadow DOM 渲染慢，经常浪费大量时间且失败）。
+        改为：创建标签页后等待足够时间让 Turnstile 组件渲染，然后直接调用 /solve_cf 接口。
+        
+        Args:
+            site_url: 需要过盾的页面 URL
+            cookies: 站点 Cookie
+            timeout: 超时时间
+            
+        Returns:
+            True 表示 CF 验证成功
+        """
+        if not self.get_status():
+            return False
+
+        # 如果最近刚修复成功，直接返回（避免重复修复）
+        if time.time() - self._cf_last_solve_time < self._cf_solve_cooldown:
+            log.info(f"【CF修复】最近已修复成功，跳过重复修复")
+            return True
+
+        # 尝试获取锁，如果已有线程在修复则等待
+        acquired = self._cf_solve_lock.acquire(timeout=timeout)
+        if not acquired:
+            log.warn(f"【CF修复】等待锁超时")
+            return False
+
+        try:
+            # 获取锁后再检查一次，可能等待期间已被其他线程修复
+            if time.time() - self._cf_last_solve_time < self._cf_solve_cooldown:
+                log.info(f"【CF修复】其他线程已完成修复，直接返回")
+                return True
+
+            self._cf_solving = True
+            log.info(f"【CF修复】开始为 {site_url} 处理 CF 验证...")
+
+            # 创建标签页访问站点主页，create_tab 内部会自动处理全屏 CF 拦截
+            tab_id = self.create_tab(url=site_url, cookies=cookies, timeout=timeout)
+            if not tab_id:
+                log.error(f"【CF修复】创建标签页失败: {site_url}")
+                return False
+
+            cf_solved = False
+            try:
+                # 等待页面加载和 Turnstile 组件渲染
+                # 跳过 get_tab_html（会触发无效的嵌入式 Turnstile 处理，浪费时间）
+                # 直接等待足够时间让 shadow DOM 渲染完成
+                log.info(f"【CF修复】等待 Turnstile 组件渲染...")
+                time.sleep(15)
+
+                # 直接调用 /solve_cf 接口，此时组件应已渲染完成
+                log.info(f"【CF修复】调用 solve_cf 接口...")
+                try:
+                    solve_url = f"{self.url}/tabs/{tab_id}/solve_cf"
+                    response = self._request_with_retry(
+                        method="POST",
+                        url=solve_url,
+                        timeout=timeout
+                    )
+                    result = response.json()
+                    if result.get("success"):
+                        cf_solved = True
+                    else:
+                        # 第一次失败，可能组件还没渲染好，再等一次
+                        log.info(f"【CF修复】首次尝试未成功({result.get('message')}), 等待后重试...")
+                        time.sleep(10)
+                        
+                        response = self._request_with_retry(
+                            method="POST",
+                            url=solve_url,
+                            timeout=timeout
+                        )
+                        result = response.json()
+                        if result.get("success"):
+                            cf_solved = True
+                        else:
+                            log.warning(f"【CF修复】✗ CF 验证处理失败: {result.get('message')}")
+                except Exception as e:
+                    log.error(f"【CF修复】调用 solve_cf 失败: {e}")
+
+                if cf_solved:
+                    # 点击 Turnstile 后需等待 cf_clearance cookie 写入完成，再关闭标签页
+                    # 过早关闭会中断 token 验证的网络往返，导致 cookie 未生效
+                    log.info(f"【CF修复】✓ CF 验证已解决，等待 cookie 写入: {site_url}")
+                    time.sleep(5)
+                    self._cf_last_solve_time = time.time()
+                    return True
+                return False
+            finally:
+                self.close_tab(tab_id)
+
+        finally:
+            self._cf_solving = False
+            self._cf_solve_lock.release()
