@@ -7,6 +7,7 @@ from app.conf import SystemConfig
 from app.downloader import Downloader
 from app.filter import Filter
 from app.helper import DbHelper
+from app.helper.words_helper import WordsHelper
 from app.indexer import Indexer
 from app.media import Media, DouBan
 from app.media.meta import MetaInfo
@@ -17,6 +18,7 @@ from app.sites import Sites
 from app.utils import Torrent
 from app.utils.commons import SingletonMeta
 from app.utils.types import MediaType, SearchType, EventType, SystemConfigKey, RssType
+from config import Config
 from web.backend.web_utils import WebUtils
 
 lock = Lock()
@@ -380,13 +382,18 @@ class Subscribe(metaclass=SingletonMeta):
             # 删除订阅
             self.delete_subscribe(mtype=MediaType.TV, rssid=rssid)
 
-        # 解发事件
         self.eventmanager.send_event(EventType.SubscribeFinished, {
             "media_info": media.to_dict(),
             "rssid": rssid
         })
 
-        # 发送订阅完成的消息
+        if Config().get_config("laboratory").get("auto_delete_customwords") and media.tmdb_id:
+            gtype = 1 if media.type == MediaType.MOVIE else 2
+            groups = WordsHelper().get_custom_word_groups(tmdbid=media.tmdb_id, gtype=gtype)
+            for group in (groups or []):
+                WordsHelper().delete_custom_word_group(gid=group.ID)
+                log.info("【Rss】已删除识别词组：%s（tmdbid=%s）" % (group.TITLE, media.tmdb_id))
+
         log.info("【Rss】%s %s %s 订阅完成，删除订阅..." % (
             media.type.value,
             media.get_title_string(),
