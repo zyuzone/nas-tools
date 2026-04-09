@@ -712,6 +712,18 @@
                   </label>
                 </div>
               </div>
+              <div class="col-12 col-xl-3">
+                <div class="mb-3">
+                  <label class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="laboratory.auto_delete_customwords" {% if
+                      Config.laboratory and Config.laboratory.auto_delete_customwords %}checked{% endif %}>
+                    <span class="form-check-label">订阅完成后删除识别词 <span class="form-help"
+                                                                            title="开启后，当某个节目订阅完成时，自动删除该节目在自定义识别词中对应的词组"
+                                                                            data-bs-toggle="tooltip">?</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
           </div>
           <div class="row">
             <div class="col-12 col-lg">
