@@ -38,7 +38,7 @@
     <div class="container-xl">
       <div class="d-grid gap-3 grid-info-card">
         {% for Torrent in Torrents %}
-          <div class="card p-0">
+          <div class="card p-0" style="overflow: visible;">
             <div class="card-body">
               <div class="row align-items-center">
                 {% if Torrent.image %}
@@ -198,7 +198,15 @@
     }, type);
   }
 
-  //事件
   setTimeout("get_all_torrents_info()", 2000);
+
+  document.querySelectorAll('.card').forEach(function(card) {
+    card.addEventListener('show.bs.dropdown', function() {
+      card.style.zIndex = '100';
+    });
+    card.addEventListener('hide.bs.dropdown', function() {
+      card.style.zIndex = '';
+    });
+  });
 
 </script>
