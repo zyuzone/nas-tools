@@ -2306,14 +2306,14 @@ class Media:
             return "https://www.themoviedb.org/tv/%s" % tmdbid
 
     def get_episode_images(self, tv_id, season_id, episode_id, orginal=False):
-        """
-        获取剧集中某一集封面
-        """
         if not self.episode:
             return ""
         if not tv_id or not season_id or not episode_id:
             return ""
         res = self.episode.images(tv_id, season_id, episode_id)
+        if not res:
+            res = self.episode.images(tv_id, season_id, episode_id,
+                                      include_image_language="null,en")
         if res:
             if orginal:
                 return Config().get_tmdbimage_url(res[-1].get("file_path"), prefix="original")
