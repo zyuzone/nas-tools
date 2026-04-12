@@ -441,13 +441,23 @@ function show_success_modal(title, func) {
 
 // 显示失败提示
 function show_fail_modal(title, func) {
-  $("#system_fail_message").text(title);
+  $("#system_fail_message").css("white-space", "pre-line").css("text-align", "left").text(title);
   if (func) {
     $("#system_fail_modal_btn").unbind('click').click(func);
   } else {
     $("#system_fail_modal_btn").unbind('click');
   }
   $("#system-fail-modal").modal("show");
+}
+
+function show_batch_partial_modal(msg, func) {
+  $("#system_partial_fail_message").text(msg);
+  if (func) {
+    $("#system_partial_fail_modal_btn").unbind('click').click(func);
+  } else {
+    $("#system_partial_fail_modal_btn").unbind('click');
+  }
+  $("#system-partial-fail-modal").modal("show");
 }
 
 // 显示警告提示
