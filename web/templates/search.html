@@ -22,13 +22,20 @@
       <div class="d-grid gap-3" id="media_cards">
         {% for Title, Item in Results.items() %}
           <div class="card bg-transparent border-0">
-            <div class="ribbon g-cyan d-md-none">
-              <a class="text-white" href="javascript:show_search_filter_modal('{{ Item.key }}')">
-                {{ SVG.filter() }}
+            <div class="d-md-none" style="position:absolute;top:10px;right:10px;z-index:10;display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-primary btn-sm batch-download-btn" id="batch_download_btn_mobile_{{ Item.key }}"
+                disabled onclick="batch_download_search_resource('{{ Item.key }}')">
+                批量下载
+              </button>
+              <a class="btn btn-sm btn-secondary" href="javascript:show_search_sort_modal('{{ Item.key }}')">
+                {{ SVG.adjustments() }} 排序
+              </a>
+              <a class="btn btn-sm btn-secondary" href="javascript:show_search_filter_modal('{{ Item.key }}')">
+                {{ SVG.filter() }} 筛选
               </a>
             </div>
             {% if Item.fav == "2" %}
-            <div class="badge badge-pill bg-green d-md-none" style="position:absolute;top:20px;right:50px;padding:0;">
+            <div class="badge badge-pill bg-green d-md-none" style="position:absolute;top:20px;right:160px;padding:0;">
               {{ SVG.check() }}
             </div>
             {% endif %}
@@ -63,6 +70,30 @@
                     {% endfor %}
                   </div>
                   {% endif %}
+                  {% if Item.filter.pix %}
+                  <div class="subheader mb-2 mt-2">分辨率</div>
+                  <div class="form-selectgroup form-selectgroup-pills">
+                    {% for filter_pix in Item.filter.pix %}
+                    <label class="form-selectgroup-item">
+                      <input type="checkbox" name="filter_pix" value="{{ filter_pix }}" class="form-selectgroup-input"
+                        onclick="filter_medias(this, '{{ Item.key }}')">
+                      <span class="form-selectgroup-label">{{ filter_pix }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                  {% if Item.filter.effect %}
+                  <div class="subheader mb-2 mt-2">视频效果</div>
+                  <div class="form-selectgroup form-selectgroup-pills">
+                    {% for filter_effect in Item.filter.effect %}
+                    <label class="form-selectgroup-item">
+                      <input type="checkbox" name="filter_effect" value="{{ filter_effect }}" class="form-selectgroup-input"
+                        onclick="filter_medias(this, '{{ Item.key }}')">
+                      <span class="form-selectgroup-label">{{ filter_effect }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
                   <div class="subheader mb-2 mt-3">站点</div>
                   <div class="form-selectgroup form-selectgroup-pills">
                     {% for filter_site in Item.filter.site %}
@@ -73,16 +104,6 @@
                     </label>
                     {% endfor %}
                   </div>
-                  <div class="subheader mb-2 mt-3">制作组</div>
-                  <div class="form-selectgroup form-selectgroup-pills">
-                    {% for filter_releasegroup in Item.filter.releasegroup %}
-                    <label class="form-selectgroup-item">
-                      <input type="checkbox" name="filter_releasegroup" value="{{ filter_releasegroup }}" class="form-selectgroup-input"
-                        onclick="filter_medias(this, '{{ Item.key }}', true)">
-                      <span class="form-selectgroup-label filter_releasegroup_span">{{ filter_releasegroup }}</span>
-                    </label>
-                    {% endfor %}
-                  </div>
                   <div class="subheader mb-2 mt-2">促销</div>
                   <div class="form-selectgroup form-selectgroup-pills">
                     {% for filter_free in Item.filter.free %}
@@ -90,6 +111,16 @@
                       <input type="checkbox" name="filter_free" value="{{ filter_free.value }}" class="form-selectgroup-input"
                         onclick="filter_medias(this, '{{ Item.key }}')">
                       <span class="form-selectgroup-label">{{ filter_free.name }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
+                  <div class="subheader mb-2 mt-3">制作组</div>
+                  <div class="form-selectgroup form-selectgroup-pills">
+                    {% for filter_releasegroup in Item.filter.releasegroup %}
+                    <label class="form-selectgroup-item">
+                      <input type="checkbox" name="filter_releasegroup" value="{{ filter_releasegroup }}" class="form-selectgroup-input"
+                        onclick="filter_medias(this, '{{ Item.key }}', true)">
+                      <span class="form-selectgroup-label filter_releasegroup_span">{{ filter_releasegroup }}</span>
                     </label>
                     {% endfor %}
                   </div>
@@ -113,11 +144,27 @@
                 </div>
                 <div class="col">
                   <!-- 标题 -->
-                  <div class="row">
+                  <div class="row align-items-center">
                     <div class="col">
                       <h2 class="mb-0">
                         <strong>{{ Title }}</strong>
                       </h2>
+                    </div>
+                    <div class="col-auto d-none d-md-flex gap-2 align-items-center">
+                      <button class="btn btn-sm btn-outline-secondary sort-btn" id="sort_seeders_btn_{{ Item.key }}"
+                        data-key="{{ Item.key }}" data-sort="seeders" data-dir="desc"
+                        onclick="sort_search_results(this)">
+                        做种数 ↓
+                      </button>
+                      <button class="btn btn-sm btn-outline-secondary sort-btn" id="sort_size_btn_{{ Item.key }}"
+                        data-key="{{ Item.key }}" data-sort="size" data-dir="none"
+                        onclick="sort_search_results(this)">
+                        大小
+                      </button>
+                      <button class="btn btn-primary btn-sm batch-download-btn" id="batch_download_btn_{{ Item.key }}"
+                        disabled onclick="batch_download_search_resource('{{ Item.key }}')">
+                        批量下载
+                      </button>
                     </div>
                   </div>
                   <!-- 媒体属性 -->
@@ -161,7 +208,7 @@
                     </a>
                   {% endif %}
                   <div {% if SE_key != 'MOV' %} id="search_se_accordion_{{ SE_key.replace(' ', '') }}_{{ Item.key }}" {% endif %}>
-                    <div class="accordion mt-2" id="search_results_accordion_{{ Item.key }}">
+                    <div class="accordion mt-2 search_results_accordion_{{ Item.key }}" id="search_results_accordion_{{ Item.key }}_{{ SE_key.replace(' ', '') }}">
                       {% for group_key, group in SE_dict.items() %}
                       <div class="accordion-item" id="search_results_accordion_item_{{ group_key }}_{{ Item.key }}_{{ SE_key.replace(' ', '') }}">
                         <h2 class="accordion-header">
@@ -182,7 +229,7 @@
                         </h2>
                         <div id="search_results_group_{{ group_key }}_{{ Item.key }}_{{ SE_key.replace(' ', '') }}"
                              class="accordion-collapse collapse {% if loop.index0 == 0 %}show{% endif %}"
-                             data-bs-parent="#search_results_accordion_{{ Item.key }}">
+                             data-bs-parent=".search_results_accordion_{{ Item.key }}">
                           <div class="accordion-body p-1">
                             <div class="card-list-group mt-1">
                               <!-- 种子列表 -->
@@ -193,12 +240,21 @@
                                   data-releasegroup="{{ torrent.releasegroup or '未知' }}"
                                   data-free="{{ torrent.uploadvalue|string + ' ' + torrent.downloadvalue|string }}"
                                   data-video="{{ torrent.video_encode }}"
+                                  data-pix="{{ torrent.respix or '' }}"
+                                  data-effect="{{ torrent.reseffect or '' }}"
+                                  data-seeders="{{ torrent.seeders or 0 }}"
+                                  data-size="{{ torrent.size or 0 }}"
                                   data-group="{{ group_key }}"
                                   data-season="{{ SE_key.replace(' ', '') }}">
                                   <input type="hidden" id="title_{{ torrent.id }}" value="{{ torrent.torrent_name }}">
                                   <input type="hidden" id="description_{{ torrent.id }}" value="{{ torrent.description }}">
                                   <input type="hidden" id="site_{{ torrent.id }}" value="{{ torrent.site }}">
                                   <div class="row g-2 align-items-center">
+                                    <div class="col-auto pe-0">
+                                      <input type="checkbox" class="form-check-input search_torrent_checkbox"
+                                        data-id="{{ torrent.id }}" data-key="{{ Item.key }}"
+                                        onclick="on_torrent_checkbox_change('{{ Item.key }}')">
+                                    </div>
                                     <div class="col-auto">
                                       <a  href="{{ torrent.pageurl }}" target="_blank">
                                         <span class="avatar avatar-sm rounded siteicon-{{ torrent.site|hash }} siteicon-{{ SiteDict[torrent.site|hash].id }}"
@@ -324,6 +380,30 @@
               {% endfor %}
             </div>
             {% endif %}
+            {% if Item.filter.pix %}
+            <div class="subheader mb-2 mt-2">分辨率</div>
+            <div class="form-selectgroup form-selectgroup-pills">
+              {% for filter_pix in Item.filter.pix %}
+              <label class="form-selectgroup-item">
+                <input type="checkbox" name="filter_pix" value="{{ filter_pix }}" class="form-selectgroup-input"
+                  onclick="filter_medias(this, '{{ Item.key }}', true)">
+                <span class="form-selectgroup-label">{{ filter_pix }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if Item.filter.effect %}
+            <div class="subheader mb-2 mt-2">视频效果</div>
+            <div class="form-selectgroup form-selectgroup-pills">
+              {% for filter_effect in Item.filter.effect %}
+              <label class="form-selectgroup-item">
+                <input type="checkbox" name="filter_effect" value="{{ filter_effect }}" class="form-selectgroup-input"
+                  onclick="filter_medias(this, '{{ Item.key }}', true)">
+                <span class="form-selectgroup-label">{{ filter_effect }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% endif %}
             <div class="subheader mb-2 mt-3">站点</div>
             <div class="form-selectgroup form-selectgroup-pills">
               {% for filter_site in Item.filter.site %}
@@ -334,16 +414,6 @@
               </label>
               {% endfor %}
             </div>
-            <div class="subheader mb-2 mt-3">制作组</div>
-            <div class="form-selectgroup form-selectgroup-pills">
-              {% for filter_releasegroup in Item.filter.releasegroup %}
-              <label class="form-selectgroup-item">
-                <input type="checkbox" name="filter_releasegroup" value="{{ filter_releasegroup }}" class="form-selectgroup-input"
-                  onclick="filter_medias(this, '{{ Item.key }}', true)">
-                <span class="form-selectgroup-label filter_releasegroup_span">{{ filter_releasegroup }}</span>
-              </label>
-              {% endfor %}
-            </div>
             <div class="subheader mb-2 mt-2">促销</div>
             <div class="form-selectgroup form-selectgroup-pills">
               {% for filter_free in Item.filter.free %}
@@ -351,6 +421,16 @@
                 <input type="checkbox" name="filter_free" value="{{ filter_free.value }}" class="form-selectgroup-input"
                   onclick="filter_medias(this, '{{ Item.key }}', true)">
                 <span class="form-selectgroup-label">{{ filter_free.name }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            <div class="subheader mb-2 mt-3">制作组</div>
+            <div class="form-selectgroup form-selectgroup-pills">
+              {% for filter_releasegroup in Item.filter.releasegroup %}
+              <label class="form-selectgroup-item">
+                <input type="checkbox" name="filter_releasegroup" value="{{ filter_releasegroup }}" class="form-selectgroup-input"
+                  onclick="filter_medias(this, '{{ Item.key }}', true)">
+                <span class="form-selectgroup-label filter_releasegroup_span">{{ filter_releasegroup }}</span>
               </label>
               {% endfor %}
             </div>
@@ -372,6 +452,51 @@
       <div class="modal-footer">
         <button type="button" class="btn me-auto" onclick="reset_filter(this, '{{ Item.key }}', true)">重置</button>
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% for Title, Item in Results.items() %}
+<div class="modal modal-blur fade" id="search-sort-modal-{{ Item.key }}" tabindex="-1" role="dialog" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">排序: {{ Title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="subheader mb-2">按做种数排序</div>
+        <div class="form-selectgroup form-selectgroup-pills mb-3">
+          <label class="form-selectgroup-item">
+            <input type="radio" name="sort_{{ Item.key }}" value="seeders_desc" class="form-selectgroup-input"
+              checked onclick="sort_search_results_radio('{{ Item.key }}', 'seeders', 'desc', true)">
+            <span class="form-selectgroup-label">从多到少</span>
+          </label>
+          <label class="form-selectgroup-item">
+            <input type="radio" name="sort_{{ Item.key }}" value="seeders_asc" class="form-selectgroup-input"
+              onclick="sort_search_results_radio('{{ Item.key }}', 'seeders', 'asc', true)">
+            <span class="form-selectgroup-label">从少到多</span>
+          </label>
+        </div>
+        <div class="subheader mb-2">按大小排序</div>
+        <div class="form-selectgroup form-selectgroup-pills">
+          <label class="form-selectgroup-item">
+            <input type="radio" name="sort_{{ Item.key }}" value="size_desc" class="form-selectgroup-input"
+              onclick="sort_search_results_radio('{{ Item.key }}', 'size', 'desc', true)">
+            <span class="form-selectgroup-label">从大到小</span>
+          </label>
+          <label class="form-selectgroup-item">
+            <input type="radio" name="sort_{{ Item.key }}" value="size_asc" class="form-selectgroup-input"
+              onclick="sort_search_results_radio('{{ Item.key }}', 'size', 'asc', true)">
+            <span class="form-selectgroup-label">从小到大</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">关闭</button>
       </div>
     </div>
   </div>
@@ -401,7 +526,7 @@
     } else {
       filter_obj = `#search_results_filter_${key}`;
     }
-    let torrent_obj = `#search_results_accordion_${key}`;
+    let torrent_obj = `.search_results_accordion_${key}`;
     let season_obj = `.search_results_season_${key}`;
     // 全部显示
     $(`${torrent_obj} .accordion-item`).each(function () {
@@ -411,6 +536,9 @@
       $(this).show();
     });
     $(season_obj).each(function () {
+      $(this).show();
+    });
+    $(`[id^="search_se_accordion_"][id$="_${key}"]`).each(function () {
       $(this).show();
     });
     // 恢复总条数
@@ -423,12 +551,11 @@
     let filter_releasegroup = select_GetSelectedVAL("filter_releasegroup")[0];
     // 过滤促销
     let filter_free = select_GetSelectedVAL("filter_free")[0];
-    // 过滤编码
     let filter_video = select_GetSelectedVAL("filter_video")[0];
-    //过滤剧集
+    let filter_pix = select_GetSelectedVAL("filter_pix")[0];
+    let filter_effect = select_GetSelectedVAL("filter_effect")[0];
     let filter_season = select_GetSelectedVAL("filter_season")[0];
-    // 有过滤则展开，无过滤则收起
-    if (filter_site || filter_free || filter_video|| filter_releasegroup) {
+    if (filter_site || filter_free || filter_video || filter_releasegroup || filter_pix || filter_effect) {
       $(`${torrent_obj} .accordion-button`).each(function () {
         $(this).removeClass("collapsed");
       });
@@ -484,16 +611,33 @@
         }
       });
     }
+    if (filter_pix) {
+      $(`${torrent_obj} .search_results_torrent`).each(function () {
+        if ($(this).attr("data-pix") !== filter_pix) {
+          if($(this).is(":visible")) {
+            $(this).hide();
+            sub_group_total($(this).attr("data-group"), key, $(this).attr("data-season"));
+          }
+        }
+      });
+    }
+    if (filter_effect) {
+      $(`${torrent_obj} .search_results_torrent`).each(function () {
+        if ($(this).attr("data-effect") !== filter_effect) {
+          if($(this).is(":visible")) {
+            $(this).hide();
+            sub_group_total($(this).attr("data-group"), key, $(this).attr("data-season"));
+          }
+        }
+      });
+    }
     if (filter_season) {
       $(season_obj).each(function () {
         let season = $(this).attr("data-season").split(" ")[0];
-        let se_key = $(this).attr("data-season").replace(" ", "");
-        if ( season !== filter_season) {
+        let se_key = $(this).attr("data-season").replace(/ /g, "");
+        if (season !== filter_season) {
           $(this).hide();
           $(`#search_se_accordion_${se_key}_${key}`).hide();
-        }else{
-          $(this).show();
-          $(`#search_se_accordion_${se_key}_${key}`).show();
         }
       });
     }
@@ -509,13 +653,11 @@
 
   // 重置过滤条件
   function filter_reset() {
-    // 过滤站点
     select_SelectALL(false, "filter_site");
-    // 过滤促销
     select_SelectALL(false, "filter_free");
-    // 过滤编码
     select_SelectALL(false, "filter_video");
-    //过滤剧集
+    select_SelectALL(false, "filter_pix");
+    select_SelectALL(false, "filter_effect");
     select_SelectALL(false, "filter_season");
   }
 
@@ -531,7 +673,147 @@
     $(`#search-filter-modal-${key}`).modal("show");
   }
 
-  //下载按钮
+  function on_torrent_checkbox_change(key) {
+    let checked = $(`.search_torrent_checkbox[data-key="${key}"]:checked`).length > 0;
+    $(`#batch_download_btn_${key}`).prop("disabled", !checked);
+    $(`#batch_download_btn_mobile_${key}`).prop("disabled", !checked);
+  }
+
+  let _batch_ids = [];
+  let _batch_index = 0;
+  let _batch_dir = "";
+  let _batch_setting = "";
+  let _batch_failed = [];
+
+  function batch_download_search_resource(key) {
+    let ids = [];
+    $(`.search_torrent_checkbox[data-key="${key}"]:checked`).each(function () {
+      ids.push($(this).attr("data-id"));
+    });
+    if (ids.length === 0) return;
+    _batch_ids = ids;
+    _batch_index = 0;
+    _batch_failed = [];
+    let first_site = $(`#site_${ids[0]}`).val();
+    $("#search_download_id").val("");
+    $("#search_download_name").val("");
+    refresh_search_download_setting_dirs(false, first_site);
+    $("#search_download_setting").attr("onchange", `refresh_savepath_select('search_download_dir', true, $(this).val(), false, "${first_site}")`);
+    $("#torrent_files").hide();
+    $("#torrent_urls").hide();
+    $("#search_download_btn").unbind("click").click(function () {
+      _batch_dir = get_savepath("search_download_dir", "search_download_dir_manual");
+      _batch_setting = $("#search_download_setting").val();
+      $("#modal-search-download").modal("hide");
+      batch_do_download_next();
+    });
+    $("#modal-search-download-title").text(`批量下载（共 ${ids.length} 个种子）`);
+    $("#modal-search-download").modal("show");
+  }
+
+  function batch_do_download_next() {
+    if (_batch_index >= _batch_ids.length) {
+      let success_count = _batch_ids.length - _batch_failed.length;
+      if (_batch_failed.length === 0) {
+        show_success_modal(`成功添加 ${success_count} 个种子到下载器`);
+      } else {
+        let summary = `${success_count} 个添加成功，${_batch_failed.length} 个失败`;
+        let fail_lines = _batch_failed.map(f => `· 【${f.site}】${f.title}：${f.msg}`).join("<br>");
+        let msg_html = summary + "<br>" + fail_lines;
+        function set_fail_msg(html) {
+          $("#system_fail_message").html(html).css({"text-align":"left","white-space":"normal"});
+        }
+        if (success_count === 0) {
+          set_fail_msg(msg_html);
+          $("#system-fail-modal .modal-status").css("background-color","");
+          $("#system-fail-modal h3").text("失败");
+          $("#system_fail_modal_btn").removeClass("btn-warning").addClass("btn-danger");
+          $("#system-fail-modal").modal("show");
+        } else {
+          set_fail_msg(msg_html);
+          $("#system-fail-modal .modal-status").css("background-color","var(--tblr-warning)");
+          $("#system-fail-modal .text-danger").removeClass("text-danger").addClass("text-warning _tmp_warn");
+          $("#system-fail-modal h3").text("部分失败");
+          $("#system_fail_modal_btn").removeClass("btn-danger").addClass("btn-warning");
+          $("#system-fail-modal").modal("show");
+          $("#system-fail-modal").one("hidden.bs.modal", function() {
+            $("#system-fail-modal .modal-status").css("background-color","");
+            $("#system-fail-modal ._tmp_warn").removeClass("text-warning _tmp_warn").addClass("text-danger");
+            $("#system-fail-modal h3").text("失败");
+            $("#system_fail_modal_btn").removeClass("btn-warning").addClass("btn-danger");
+          });
+        }
+      }
+      return;
+    }
+    let id = _batch_ids[_batch_index++];
+    let title = $(`#title_${id}`).val();
+    let site = $(`#site_${id}`).val();
+    ajax_post("download", {"id": id, "dir": _batch_dir, "setting": _batch_setting}, function (ret) {
+      if (ret.retcode !== 0) {
+        _batch_failed.push({"site": site, "title": title, "msg": ret.retmsg});
+      }
+      batch_do_download_next();
+    });
+  }
+
+  function show_search_sort_modal(key) {
+    $(`#search-sort-modal-${key}`).modal("show");
+  }
+
+  function do_sort(key, sort, dir) {
+    let torrent_obj = `.search_results_accordion_${key}`;
+    $(`${torrent_obj} .accordion-item`).each(function () {
+      let body = $(this).find(".card-list-group");
+      let rows = body.find(".search_results_torrent").toArray();
+      rows.sort(function (a, b) {
+        let va = parseFloat($(a).data(sort)) || 0;
+        let vb = parseFloat($(b).data(sort)) || 0;
+        return dir === "desc" ? vb - va : va - vb;
+      });
+      rows.forEach(function (r) { body.append(r); });
+    });
+    $(`.sort-btn[data-key="${key}"]`).each(function () {
+      let s = $(this).data("sort");
+      let d = $(this).data("dir");
+      if (s === sort && d === dir) {
+        $(this).removeClass("btn-outline-secondary").addClass("btn-primary");
+        let label = s === "seeders" ? "做种数" : "大小";
+        $(this).text(label + (dir === "desc" ? " ↓" : " ↑"));
+      } else {
+        $(this).removeClass("btn-primary").addClass("btn-outline-secondary");
+        let label = s === "seeders" ? "做种数" : "大小";
+        $(this).text(label);
+      }
+    });
+  }
+
+  function sort_search_results(btn, close_modal) {
+    let key = $(btn).data("key");
+    let sort = $(btn).data("sort");
+    let dir = $(btn).data("dir");
+    let next_dir = (dir === "desc") ? "asc" : "desc";
+    $(btn).data("dir", next_dir);
+    do_sort(key, sort, next_dir);
+    if (close_modal) {
+      $(`#search-sort-modal-${key}`).modal("hide");
+    }
+  }
+
+  function sort_search_results_radio(key, sort, dir, close_modal) {
+    do_sort(key, sort, dir);
+    if (close_modal) {
+      $(`#search-sort-modal-${key}`).modal("hide");
+    }
+  }
+
+  $(document).ready(function () {
+    $("[id^='sort_seeders_btn_']").each(function () {
+      let key = $(this).data("key");
+      if (key) do_sort(key, "seeders", "desc");
+    });
+  });
+
   function download_search_resource(id) {
     const title = $(`#title_${id}`).val();
     const site = $(`#site_${id}`).val();
