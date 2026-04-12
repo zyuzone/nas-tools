@@ -292,8 +292,7 @@ class Scraper:
         xplot.appendChild(doc.createCDATASection(seasoninfo.get("overview") or ""))
         xoutline = DomUtils.add_node(doc, root, "outline")
         xoutline.appendChild(doc.createCDATASection(seasoninfo.get("overview") or ""))
-        # 标题
-        DomUtils.add_node(doc, root, "title", "季 %s" % season)
+        DomUtils.add_node(doc, root, "title", seasoninfo.get("name") or ("季 %s" % season))
         # 发行日期
         DomUtils.add_node(doc, root, "premiered", seasoninfo.get("air_date") or "")
         DomUtils.add_node(doc, root, "releasedate", seasoninfo.get("air_date") or "")
