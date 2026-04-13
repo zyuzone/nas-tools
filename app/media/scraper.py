@@ -644,23 +644,19 @@ class Scraper:
                 # episode thumb
                 if scraper_tv_pic.get("episode_thumb"):
                     episode_thumb = os.path.join(dir_path, file_name + "-thumb.jpg")
-                    if not force_pic \
-                            and not os.path.exists(episode_thumb):
-                        # 优先从TMDB查询
+                    if force_pic or not os.path.exists(episode_thumb):
                         episode_image = self.media.get_episode_images(tv_id=media.tmdb_id,
                                                                       season_id=media.get_season_seq(),
                                                                       episode_id=media.get_episode_seq(),
                                                                       orginal=True)
                         if episode_image:
                             self.__save_image(episode_image, episode_thumb, '', force_pic)
-                        else:
-                            # 开启ffmpeg，则从视频文件生成缩略图
-                            if scraper_tv_pic.get("episode_thumb_ffmpeg"):
-                                video_path = os.path.join(dir_path, file_name + file_ext)
-                                log.info(f"【Scraper】正在生成缩略图：{video_path} ...")
-                                FfmpegHelper().get_thumb_image_from_video(video_path=video_path,
-                                                                          image_path=episode_thumb)
-                                log.info(f"【Scraper】缩略图生成完成：{episode_thumb}")
+                        elif scraper_tv_pic.get("episode_thumb_ffmpeg"):
+                            video_path = os.path.join(dir_path, file_name + file_ext)
+                            log.info(f"【Scraper】正在生成缩略图：{video_path} ...")
+                            FfmpegHelper().get_thumb_image_from_video(video_path=video_path,
+                                                                      image_path=episode_thumb)
+                            log.info(f"【Scraper】缩略图生成完成：{episode_thumb}")
 
         except Exception as e:
             ExceptionUtils.exception_traceback(e)
