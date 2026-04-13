@@ -3531,6 +3531,20 @@ class WebAction:
                 video_encode = res_mix.get("video_encode") or ""
                 restype = res_mix.get("restype") or ""
                 reseffect = res_mix.get("reseffect") or ""
+                # 规范化视频效果：提取标准词，DOVI/DOLBY 归一化为 DV
+                _effect_std_map = {"DOVI": "DV", "DOLBY": "DV", "HDR10": "HDR10", "HDR": "HDR", "SDR": "SDR", "DV": "DV"}
+                _effect_tokens = [_effect_std_map.get(w.upper()) for w in reseffect.upper().split() if w.upper() in _effect_std_map]
+                _effect_tokens = list(dict.fromkeys(_effect_tokens))
+                if _effect_tokens:
+                    _token_set = set(_effect_tokens)
+                    if _token_set == {"HDR10", "DV"}:
+                        reseffect = "HDR10 DV"
+                    elif _token_set == {"HDR", "DV"}:
+                        reseffect = "HDR DV"
+                    else:
+                        reseffect = _effect_tokens[0]
+                else:
+                    reseffect = ""
             else:
                 restype = ""
                 respix = ""
@@ -3559,16 +3573,21 @@ class WebAction:
                 title_string = f"{title_string} ({item.YEAR})"
             # 电视剧季集标识
             mtype = item.TYPE or ""
-            if mtype != "MOV" and item.TORRENT_NAME:
+            if item.TORRENT_NAME:
                 _se_meta = MetaInfo(title=item.TORRENT_NAME)
+                _is_movie = (mtype == "MOV") or (not mtype and _se_meta.type == MediaType.MOVIE)
+            else:
+                _se_meta = None
+                _is_movie = (mtype == "MOV")
+            if not _is_movie and _se_meta:
                 if _se_meta.begin_season is not None:
-                    _se_season = "S%s" % str(_se_meta.begin_season).rjust(2, "0")
-                    _se_episode = _se_meta.get_episode_string()
-                    SE_key = ("%s %s" % (_se_season, _se_episode)).strip() if _se_episode else _se_season
+                    SE_key = "S%s" % str(_se_meta.begin_season).rjust(2, "0")
                 elif item.ES_STRING:
                     SE_key = item.ES_STRING
-                else:
+                elif mtype:
                     SE_key = "TV"
+                else:
+                    SE_key = "Unknown"
             else:
                 SE_key = "MOV"
             media_type = {"MOV": "电影", "TV": "电视剧", "ANI": "动漫"}.get(mtype)
@@ -3666,14 +3685,15 @@ class WebAction:
                 if filter_season \
                         and filter_season not in torrent_filter.get("season"):
                     torrent_filter["season"].append(filter_season)
-                if respix \
-                        and respix not in torrent_filter.get("pix", []):
+                if respix                         and respix not in torrent_filter.get("pix", []):
                     torrent_filter["pix"].append(respix)
-                _effect_whitelist = {"SDR", "HDR", "HDR10", "DV", "DOVI", "DOLBY"}
-                _effect_valid = reseffect and any(
-                    w in _effect_whitelist for w in reseffect.upper().split())
-                if _effect_valid                         and reseffect not in torrent_filter.get("effect", []):
+                if reseffect and reseffect not in torrent_filter.get("effect", []):
                     torrent_filter["effect"].append(reseffect)
+                if restype and restype not in torrent_filter.get("source", []):
+                    torrent_filter["source"].append(restype)
+                _seg = "电视剧" if SE_key not in ["MOV", "Unknown"] else ("Unknown" if SE_key == "Unknown" else "电影")
+                if _seg not in torrent_filter.get("segment", []):
+                    torrent_filter["segment"].append(_seg)
             else:
                 fav, rssid = 0, None
                 # 存在标志
@@ -3719,9 +3739,9 @@ class WebAction:
                         "video": [video_encode] if video_encode else [],
                         "season": [filter_season] if filter_season else [],
                         "pix": [respix] if respix else [],
-                        "effect": ([reseffect] if reseffect and any(
-                            w in {"SDR", "HDR", "HDR10", "DV", "DOVI", "DOLBY"}
-                            for w in reseffect.upper().split()) else [])
+                        "effect": ([reseffect] if reseffect else []),
+                        "source": ([restype] if restype else []),
+                        "segment": (["电视剧"] if SE_key not in ["MOV", "Unknown"] else ([SE_key] if SE_key == "Unknown" else ["电影"]))
                     }
                 }
 
