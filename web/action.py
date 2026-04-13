@@ -685,14 +685,12 @@ class WebAction:
                     ua=site_info.get("ua"),
                     proxy=site_info.get("proxy")
                 )
-
-                if not file_path:
-                    return {"code": -1, "msg": f"下载种子文件失败： {retmsg}"}
-
                 media_info = Media().get_media_info(title=os.path.basename(file_path))
                 if media_info:
                     media_info.site = "WEB"
-            
+                if not file_path:
+                    return {"code": -1, "msg": f"下载种子文件失败： {retmsg}"}
+
             else:
                 media_info = MetaInfo('')
                 media_info.enclosure = url
@@ -3561,7 +3559,18 @@ class WebAction:
                 title_string = f"{title_string} ({item.YEAR})"
             # 电视剧季集标识
             mtype = item.TYPE or ""
-            SE_key = item.ES_STRING if item.ES_STRING and mtype != "MOV" else "MOV"
+            if mtype != "MOV" and item.TORRENT_NAME:
+                _se_meta = MetaInfo(title=item.TORRENT_NAME)
+                if _se_meta.begin_season is not None:
+                    _se_season = "S%s" % str(_se_meta.begin_season).rjust(2, "0")
+                    _se_episode = _se_meta.get_episode_string()
+                    SE_key = ("%s %s" % (_se_season, _se_episode)).strip() if _se_episode else _se_season
+                elif item.ES_STRING:
+                    SE_key = item.ES_STRING
+                else:
+                    SE_key = "TV"
+            else:
+                SE_key = "MOV"
             media_type = {"MOV": "电影", "TV": "电视剧", "ANI": "动漫"}.get(mtype)
             # 只需要部分种子标签
             labels = [label for label in str(item.NOTE).split("|")
@@ -3595,9 +3604,11 @@ class WebAction:
                 releasegroup = "未知"
             else:
                 releasegroup = item.OTHERINFO
-            # 季
-            filter_season = SE_key.split()[0] if SE_key and SE_key not in [
-                "MOV", "TV"] else None
+            # 季：SE_key 已从种子名正确解析，直接取第一个词
+            if SE_key not in ["MOV", "TV"]:
+                filter_season = SE_key.split()[0]
+            else:
+                filter_season = None
             # 合并搜索结果
             if SearchResults.get(title_string):
                 # 种子列表
@@ -3655,6 +3666,14 @@ class WebAction:
                 if filter_season \
                         and filter_season not in torrent_filter.get("season"):
                     torrent_filter["season"].append(filter_season)
+                if respix \
+                        and respix not in torrent_filter.get("pix", []):
+                    torrent_filter["pix"].append(respix)
+                _effect_whitelist = {"SDR", "HDR", "HDR10", "DV", "DOVI", "DOLBY"}
+                _effect_valid = reseffect and any(
+                    w in _effect_whitelist for w in reseffect.upper().split())
+                if _effect_valid                         and reseffect not in torrent_filter.get("effect", []):
+                    torrent_filter["effect"].append(reseffect)
             else:
                 fav, rssid = 0, None
                 # 存在标志
@@ -3698,7 +3717,11 @@ class WebAction:
                         "free": [free_item],
                         "releasegroup": [releasegroup],
                         "video": [video_encode] if video_encode else [],
-                        "season": [filter_season] if filter_season else []
+                        "season": [filter_season] if filter_season else [],
+                        "pix": [respix] if respix else [],
+                        "effect": ([reseffect] if reseffect and any(
+                            w in {"SDR", "HDR", "HDR10", "DV", "DOVI", "DOLBY"}
+                            for w in reseffect.upper().split()) else [])
                     }
                 }
 
