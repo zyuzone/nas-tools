@@ -3544,11 +3544,11 @@ class WebAction:
                     else:
                         reseffect = _effect_tokens[0]
                 else:
-                    reseffect = ""
+                    reseffect = "SDR"
             else:
                 restype = ""
                 respix = ""
-                reseffect = ""
+                reseffect = "SDR"
                 video_encode = ""
             # 分组标识 (来源，分辨率)
             group_key = re.sub(r"[-.\s@|]", "", f"{respix}_{restype}").lower()
